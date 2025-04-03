@@ -1,0 +1,77 @@
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.Transaction;
+import org.hibernate.cfg.Configuration;
+import javax.persistence.*;
+
+@Entity
+@Table(name = "accounts")
+class Account {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private int id;
+    private String owner;
+    private double balance;
+
+    public Account() {}
+
+    public Account(String owner, double balance) {
+        this.owner = owner;
+        this.balance = balance;
+    }
+
+    public int getId() { return id; }
+    public String getOwner() { return owner; }
+    public double getBalance() { return balance; }
+}
+
+@Entity
+@Table(name = "transactions")
+class TransactionRecord {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private int id;
+    private int fromAccount;
+    private int toAccount;
+    private double amount;
+
+    public TransactionRecord() {}
+
+    public TransactionRecord(int fromAccount, int toAccount, double amount) {
+        this.fromAccount = fromAccount;
+        this.toAccount = toAccount;
+        this.amount = amount;
+    }
+}
+
+class BankService {
+    public void transferMoney(int fromAccount, int toAccount, double amount) {
+        Session session = HibernateUtil.getSessionFactory().openSession();
+        Transaction tx = session.beginTransaction();
+        try {
+            Account sender = session.get(Account.class, fromAccount);
+            Account receiver = session.get(Account.class, toAccount);
+            if (sender.getBalance() >= amount) {
+                sender.balance -= amount;
+                receiver.balance += amount;
+                session.save(new TransactionRecord(fromAccount, toAccount, amount));
+                tx.commit();
+                System.out.println("Transaction Successful");
+            } else {
+                throw new RuntimeException("Insufficient Balance");
+            }
+        } catch (Exception e) {
+            tx.rollback();
+            System.out.println("Transaction Failed: " + e.getMessage());
+        } finally {
+            session.close();
+        }
+    }
+}
+
+public class SpringHibernateTransactionApplication {
+    public static void main(String[] args) {
+        BankService bankService = new BankService();
+        bankService.transferMoney(1, 2, 500);
+    }
+}
